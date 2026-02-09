@@ -10,7 +10,7 @@ import mistralai
 
 # === КОНФИГ ===
 BOT_TOKEN = "8426118781:AAGvjG3LWWE5AJYF8saT8SSEW-5UD2X9pA0"         # тот же, что в polling_bot.py
-CHANNEL_TOKEN = "7454321131:AAENfNcpoHu1cnsJcNQJwLoRvfv2ioljVeE"          # бот, который публикует в канал
+CHANNEL_TOKEN = "8426118781:AAGvjG3LWWE5AJYF8saT8SSEW-5UD2X9pA0"          # один и тот же бот публикует в канал
 CHANNEL_USERNAME = "@forma_test"
 MISTRAL_API_KEY = "hj83AvvrZjredFYcMIyAN3fDbpYmmpit"
 
