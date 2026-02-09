@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+mistralai
+aiofiles
+httpx
+pydantic
+python-multipart
+python-dotenv
+
