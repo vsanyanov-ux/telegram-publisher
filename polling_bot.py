@@ -29,7 +29,7 @@ async def handle_text(message: Message):
 
 
 async def main():
-    await dp.start_polling(bot)
+    await dp.start_polling(bot, on_startup=on_startup)
 
 
 if __name__ == "__main__":
