@@ -25,7 +25,7 @@ async def send_message(chat_id: int, text: str):
     Используем её там, где нет объекта Message.
     """
     url = f"https://api.telegram.org/bot8426118781:AAGvjG3LWWE5AJYF8saT8SSEW-5UD2X9pA0/sendMessage"
-    data = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+    data = {"chat_id": chat_id, "text": text}  # без parse_mode
     async with httpx.AsyncClient() as http:
         await http.post(url, data=data)
 
@@ -42,7 +42,7 @@ async def generate_article_for_chat(chat_id: int):
             "role": "system",
             "content": (
                 "Ты пишешь короткие статьи для Telegram-канала. "
-                "Сделай текст живым, интересным, 400-600 слов. "
+                "Сделай текст живым, интересным, 200-300 слов. "
                 "Добавь эмодзи, markdown форматирование (## заголовки, **жирный**). "
                 "Структура: заголовок, введение, основная часть, вывод."
             ),
@@ -65,8 +65,8 @@ async def generate_article_for_chat(chat_id: int):
 
         await send_message(
             chat_id,
-            f"📝 **Новая статья:**\n\n{article}\n\n"
-            f"_✅ `ок` — опубликовать | ❌ `нет` — новая_",
+            "Новая статья сгенерирована.\n\n"
+            "Сейчас я буду отправлять её в виде файла, чтобы избежать проблем с форматированием."
         )
     except Exception as e:
         await send_message(chat_id, f"❌ Ошибка Mistral: {str(e)}")
