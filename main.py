@@ -79,7 +79,7 @@ async def handle_photo(chat_id: int, message: dict):
 
 async def handle_text(chat_id: int, text: str):
     if chat_id not in user_states:
-        await send_message(chat_id, "❌ Сначала отправьте фото с тезисами!")
+        await send_message(chat_id, "❌ Сначала отправь картинку с тезисами!")
         return
     
     state = user_states[chat_id]
