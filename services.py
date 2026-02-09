@@ -63,6 +63,10 @@ async def generate_article_for_chat(chat_id: int):
         article = response.choices[0].message.content.strip()
         state["articles"].append(article)
 
+        # 1) сначала отправляем текст статьи на согласование
+        await send_message(chat_id, article)
+        
+        # 2) затем короткую подсказку, что делать дальше
         await send_message(
             chat_id,
             "Готово! \n"
