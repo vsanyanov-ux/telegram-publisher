@@ -14,6 +14,9 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN, default=DefaultBotProperties(parse_mode="Markdown"))
 dp = Dispatcher()
 
+async def on_startup(dispatcher):
+    await bot.delete_webhook(drop_pending_updates=True)  # отключаем webhook
+
 
 @dp.message(F.photo)
 async def handle_photo(message: Message):
