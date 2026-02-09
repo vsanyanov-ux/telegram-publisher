@@ -35,16 +35,16 @@ async def generate_article_for_chat(chat_id: int):
     Полная логика генерации статьи через Mistral (из твоего FastAPI).
     """
     state = user_states[chat_id]
-    theses = state["caption"] or "Напишите тезисы в подписи к фото"
+    theses = state["caption"] or "Напишите тезисы в подписи к картинке"
 
     messages = [
         {
             "role": "system",
             "content": (
-                "Ты пишешь короткие статьи для Telegram-канала. "
-                "Сделай текст живым, интересным, 200-300 слов. "
-                "Добавь эмодзи, markdown форматирование (## заголовки, **жирный**). "
-                "Структура: заголовок, введение, основная часть, вывод."
+            "Ты пишешь КОРОТКИЕ тексты для подписи к фото в Telegram-канале. "
+            "Длина не больше 800–900 символов. "
+            "Стиль живой, понятный, можно использовать эмодзи, но немного. "
+            "Не делай заголовки и длинные вступления, сразу к сути."
             ),
         },
         {
@@ -58,7 +58,7 @@ async def generate_article_for_chat(chat_id: int):
             model="mistral-large-latest",
             messages=messages,
             temperature=0.7,
-            max_tokens=1500,
+            max_tokens=300, # вместо 1500
         )
         article = response.choices[0].message.content.strip()
         state["articles"].append(article)
@@ -77,7 +77,7 @@ async def publish_to_channel(file_id: str, article: str):
     data = {
         "chat_id": 7454321131,
         "photo": file_id,
-        "caption": article[:4000],
+        "caption": article[:1024], #вместо 4000
         "parse_mode": "Markdown",
     }
     async with httpx.AsyncClient() as http:
