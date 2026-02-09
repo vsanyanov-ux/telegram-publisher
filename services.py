@@ -80,6 +80,7 @@ async def publish_to_channel(file_id: str, article: str):
         "caption": article[:1024], #вместо 4000
         "parse_mode": "Markdown",
     }
+    print("DEBUG file_id:", file_id)
     async with httpx.AsyncClient() as http:
         await http.post(url, data=data)
 
