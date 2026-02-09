@@ -73,7 +73,7 @@ async def generate_article_for_chat(chat_id: int):
 
 
 async def publish_to_channel(file_id: str, article: str):
-    url = f"https://api.telegram.org/bot7454321131:AAENfNcpoHu1cnsJcNQJwLoRvfv2ioljVeE/sendPhoto"
+    url = f"https://api.telegram.org/bot8426118781:AAGvjG3LWWE5AJYF8saT8SSEW-5UD2X9pA0/sendPhoto"
     data = {
         "chat_id": CHANNEL_USERNAME,
         "photo": file_id,
