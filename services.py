@@ -1,56 +1,184 @@
+import os
+import tempfile
+from typing import Dict
+
+import aiofiles
+import httpx
 from aiogram import Bot
 from aiogram.types import Message
+import mistralai
 
-# TODO: подставь реальный ID канала
-CHANNEL_ID = 7454321131
+# === КОНФИГ ===
+BOT_TOKEN = "8426118781:AAGvjG3LWWE5AJYF8saT8SSEW-5UD2X9pA0"         # тот же, что в polling_bot.py
+CHANNEL_TOKEN = "7454321131:AAENfNcpoHu1cnsJcNQJwLoRvfv2ioljVeE"          # бот, который публикует в канал
+CHANNEL_USERNAME = "@FormaVolgodonskChanelBot"
+MISTRAL_API_KEY = "hj83AvvrZjredFYcMIyAN3fDbpYmmpit"
+
+# === КЛИЕНТ MISTRAL И СОСТОЯНИЯ ===
+client = mistralai.Mistral(api_key=MISTRAL_API_KEY)
+user_states: Dict[int, dict] = {}
 
 
-async def generate_article(thesis: str) -> str:
+async def send_message(chat_id: int, text: str):
     """
-    Здесь будет реальный вызов Mistral.
-    Пока заглушка, чтобы протестировать цепочку.
+    Служебная функция для отправки текста через HTTP API Telegram.
+    Используем её там, где нет объекта Message.
     """
-    return f"Черновик статьи по тезисам:\n\n{thesis}"
+    url = f"https://api.telegram.org/bot8426118781:AAGvjG3LWWE5AJYF8saT8SSEW-5UD2X9pA0/sendMessage"
+    data = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+    async with httpx.AsyncClient() as http:
+        await http.post(url, data=data)
 
 
-async def send_draft(bot: Bot, message: Message, article: str):
+async def generate_article_for_chat(chat_id: int):
     """
-    Отправляет пользователю черновик.
+    Полная логика генерации статьи через Mistral (из твоего FastAPI).
     """
-    await message.answer(
-        "Вот черновик статьи:\n\n"
-        f"{article}\n\n"
-        "Если всё ок, ответь сообщением «ок»."
-    )
+    state = user_states[chat_id]
+    theses = state["caption"] or "Напишите тезисы в подписи к фото"
+
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Ты пишешь короткие статьи для Telegram-канала. "
+                "Сделай текст живым, интересным, 400-600 слов. "
+                "Добавь эмодзи, markdown форматирование (## заголовки, **жирный**). "
+                "Структура: заголовок, введение, основная часть, вывод."
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"Тезисы: {theses}\nНапиши статью для Telegram.",
+        },
+    ]
+
+    try:
+        response = client.chat.complete(
+            model="mistral-large-latest",
+            messages=messages,
+            temperature=0.7,
+            max_tokens=1500,
+        )
+        article = response.choices[0].message.content.strip()
+        state["articles"].append(article)
+
+        await send_message(
+            chat_id,
+            f"📝 **Новая статья:**\n\n{article}\n\n"
+            f"_✅ `ок` — опубликовать | ❌ `нет` — новая_",
+        )
+    except Exception as e:
+        await send_message(chat_id, f"❌ Ошибка Mistral: {str(e)}")
 
 
-async def publish_to_channel(bot: Bot, message: Message, article: str):
-    """
-    Публикует фото + текст в канал.
-    """
-    photo = message.photo[-1].file_id if message.photo else None
-    if photo:
-        await bot.send_photo(chat_id=CHANNEL_ID, photo=photo, caption=article)
-    else:
-        await bot.send_message(chat_id=CHANNEL_ID, text=article)
+async def publish_to_channel(file_id: str, article: str):
+    url = f"https://api.telegram.org/bot7454321131:AAENfNcpoHu1cnsJcNQJwLoRvfv2ioljVeE/sendPhoto"
+    data = {
+        "chat_id": 7454321131,
+        "photo": file_id,
+        "caption": article[:4000],
+        "parse_mode": "Markdown",
+    }
+    async with httpx.AsyncClient() as http:
+        await http.post(url, data=data)
 
+
+# === ФУНКЦИИ ДЛЯ POLLING-БОТА ===
 
 async def process_new_photo(bot: Bot, message: Message):
     """
-    Пользователь прислал фото с подписью‑тезисами.
+    Пользователь прислал фото с подписью-тезисами (polling).
+    Скачиваем файл, сохраняем состояние, запускаем генерацию статьи.
     """
-    thesis = message.caption or "(пустые тезисы)"
-    article = await generate_article(thesis)
-    await send_draft(bot, message, article)
+    chat_id = message.chat.id
+
+    # получаем file_path через getFile
+    photo = message.photo[-1]
+    file_id = photo.file_id
+
+    async with httpx.AsyncClient() as http:
+        resp = await http.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/getFile",
+            json={"file_id": file_id},
+        )
+        file_info = resp.json()
+        if not file_info.get("ok"):
+            await message.answer("❌ Ошибка получения файла")
+            return
+
+        file_path = file_info["result"]["file_path"]
+        download_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+
+        file_resp = await http.get(download_url)
+        suffix = ".jpg" if "jpeg" in file_resp.headers.get("content-type", "") else ".png"
+        fd, temp_path = tempfile.mkstemp(suffix=suffix)
+        os.close(fd)
+
+        async with aiofiles.open(temp_path, "wb") as f:
+            await f.write(file_resp.content)
+
+    caption = message.caption or ""
+    user_states[chat_id] = {
+        "file_id": file_id,
+        "file_path": temp_path,
+        "caption": caption,
+        "articles": [],
+    }
+
+    await message.answer("✅ Фото получено!\n🤖 Генерирую статью...")
+    await generate_article_for_chat(chat_id)
 
 
 async def process_ok(bot: Bot, message: Message):
     """
-    Пользователь подтвердил «ок».
-    Пока используем текст сообщения как статью.
-    Потом сюда подставим сохранённый article.
+    Пользователь отвечает «ок» / «да» / «yes» — публикуем последнюю статью.
     """
-    article = message.text
-    await publish_to_channel(bot, message, article)
-    await message.answer("Опубликовал пост в канал ✅")
+    chat_id = message.chat.id
+
+    if chat_id not in user_states:
+        await message.answer("❌ Сначала отправьте фото с тезисами!")
+        return
+
+    state = user_states[chat_id]
+    article = state["articles"][-1]
+
+    await publish_to_channel(state["file_id"], article)
+
+    try:
+        os.unlink(state["file_path"])
+    except Exception:
+        pass
+
+    del user_states[chat_id]
+    await message.answer("🎉 Статья опубликована в канал!")
+
+
+async def process_text(bot: Bot, message: Message):
+    """
+    Обработка произвольного текста: 'нет' → новая статья, остальное — подсказка.
+    """
+    chat_id = message.chat.id
+    text_lower = message.text.lower().strip()
+
+    if chat_id not in user_states:
+        await message.answer("❌ Сначала отправьте фото с тезисами!")
+        return
+
+    state = user_states[chat_id]
+
+    if text_lower in ["ок", "ok", "да", "yes"]:
+        await process_ok(bot, message)
+
+    elif text_lower in ["нет", "no"]:
+        await message.answer("🔄 Генерирую новую статью...")
+        await generate_article_for_chat(chat_id)
+
+    else:
+        await message.answer(
+            "❓ Напишите:\n"
+            "• `ок` — опубликовать в канал\n"
+            "• `нет` — новую статью\n\n"
+            f"Текущая статья:\n{state['articles'][-1][:500]}..."
+        )
 
