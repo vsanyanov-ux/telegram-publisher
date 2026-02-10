@@ -9,8 +9,10 @@ Telegram Publisher — сервис для публикации постов в 
 cd /opt/telegram-publisher git pull origin main # при обнолении любого файла, не только main.py
 
 ## Запуск
-cd /opt/telegram-publisher       
+cd /opt/telegram-publisher 
+
 source venv/bin/activate
+
 python polling_bot.py
 
 ## Ошибка запуска двух ботов
