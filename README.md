@@ -5,10 +5,17 @@ Telegram Publisher — сервис для публикации постов в 
 Бот принимает фото, генерирует короткий текст с помощью Mistral AI и по команде автора публикует готовый пост в канал.
 
 ---
+## Запуск 
+sudo systemctl start telegram-bot.service
+
+## Статус
+sudo systemctl status telegram-bot.service
+
+
 ## Обновление
 cd /opt/telegram-publisher git pull origin main # при обнолении любого файла, не только main.py
 
-## Запуск
+## Запуск polling_bot.py
 cd /opt/telegram-publisher 
 
 source venv/bin/activate
