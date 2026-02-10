@@ -11,27 +11,9 @@ sudo systemctl start telegram-bot.service
 ## Статус
 sudo systemctl status telegram-bot.service
 
-
 ## Обновление
 cd /opt/telegram-publisher git pull origin main # при обнолении любого файла, не только main.py
 
-## Запуск polling_bot.py
-cd /opt/telegram-publisher 
-
-source venv/bin/activate
-
-python polling_bot.py
-
-## Ошибка запуска двух ботов
-cd /opt/telegram-publisher ps aux | grep polling_bot.py
-
-cd /opt/telegram-publisher kill 123456 #ввести PID
-
-cd /opt/telegram-publisher 
-
-source venv/bin/activate
-
-python polling_bot.py
 
 ## Возможности
 
