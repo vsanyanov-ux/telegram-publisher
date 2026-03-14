@@ -1,13 +1,17 @@
 import asyncio
 import logging
+import os
+from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 
-from services import process_new_photo, process_text
+from services import process_new_photo, process_text, process_ok, process_cancel, generate_article_for_chat
 
-API_TOKEN = "8426118781:AAGvjG3LWWE5AJYF8saT8SSEW-5UD2X9pA0"  # тот же, что BOT_TOKEN в services.py
+load_dotenv()
+
+API_TOKEN = os.getenv("BOT_TOKEN")  # тот же, что BOT_TOKEN в services.py
 
 logging.basicConfig(level=logging.INFO)
 
@@ -26,6 +30,29 @@ async def handle_photo(message: Message):
 @dp.message(F.text)
 async def handle_text(message: Message):
     await process_text(bot, message)
+
+
+@dp.callback_query(F.data == "publish_ok")
+async def callback_publish_ok(callback: CallbackQuery):
+    await process_ok(bot, callback.message)
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "publish_no")
+async def callback_publish_no(callback: CallbackQuery):
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    await callback.message.answer("🔄 Генерирую новую статью...")
+    await generate_article_for_chat(bot, callback.message.chat.id)
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "publish_cancel")
+async def callback_publish_cancel(callback: CallbackQuery):
+    await process_cancel(bot, callback.message)
+    await callback.answer()
 
 
 async def main():

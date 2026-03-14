@@ -5,23 +5,24 @@ from pydantic import BaseModel
 import tempfile
 import aiofiles
 import httpx
-import mistralai
+from mistralai.client import Mistral
+from mistralai.client.models import SystemMessage, UserMessage
 from typing import Optional, Dict
 import json
 
 load_dotenv()
 
 app = FastAPI(title="Telegram Post Publisher")
-client = mistralai.Mistral(api_key="7nf9fCMHEhPZa0nkQSgq0F5alCO80NhS")
+client = Mistral(api_key=os.getenv("MISTRAL_API_KEY"))
 user_states: Dict[int, dict] = {}
 
 
 # Токены
-BOT_TOKEN = "8426118781:AAGvjG3LWWE5AJYF8saT8SSEW-5UD2X9pA0"
-CHANNEL_TOKEN = "7454321131:AAENfNcpoHu1cnsJcNQJwLoRvfv2ioljVeE"
-MISTRAL_API_KEY = "7nf9fCMHEhPZa0nkQSgq0F5alCO80NhS"
-CHANNEL_USERNAME = "@FormaVolgodonskChanelBot"
-DOMAIN = "https://158.255.1.153"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHANNEL_TOKEN = os.getenv("CHANNEL_TOKEN")
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
+DOMAIN = os.getenv("DOMAIN")
 
 class Update(BaseModel):
     update_id: int
@@ -112,11 +113,11 @@ async def generate_article(chat_id: int):
     theses = state["caption"] or "Напишите тезисы в подписи к фото"
     
     messages = [
-        ChatMessage(role="system", content="""Ты пишешь короткие статьи для Telegram-канала. 
+        SystemMessage(content="""Ты пишешь короткие статьи для Telegram-канала. 
         Сделай текст живым, интересным, 400-600 слов. 
         Добавь эмодзи, markdown форматирование (## заголовки, **жирный**).
         Структура: заголовок, введение, основная часть, вывод."""), 
-        ChatMessage(role="user", content=f"Тезисы: {theses}\nНапиши статью для Telegram.")
+        UserMessage(content=f"Тезисы: {theses}\nНапиши статью для Telegram.")
     ]
     
     try:

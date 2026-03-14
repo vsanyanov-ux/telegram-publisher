@@ -6,4 +6,5 @@ httpx
 pydantic
 python-multipart
 python-dotenv
+aiogram
 

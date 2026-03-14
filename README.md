@@ -1,159 +1,70 @@
 # Telegram Publisher
 
-Telegram Publisher — сервис для публикации постов в Telegram‑канал по фотографии и тезисам, которые автор отправляет боту в личку.
+Telegram Publisher — сервис для публикации постов в Telegram‑канал по фотографии и тезисам.
 
-Бот принимает фото, генерирует короткий текст с помощью Mistral AI и по команде автора публикует готовый пост в канал.
+Бот принимает фото, генерирует статью с помощью Mistral AI и после вашего утверждения публикует готовый пост в канал.
 
 ---
-## Запуск 
-sudo systemctl start telegram-bot.service
 
-## Статус
-sudo systemctl status telegram-bot.service
+## Новые возможности (v2.0)
 
-## Обновление
-cd /opt/telegram-publisher git pull origin main # при обнолении любого файла, не только main.py
+- **Новый интерфейс**: Используются `Inline`-кнопки прямо под текстом, что делает управление удобнее.
+- **Кнопка «Отмена»**: Вы можете в любой момент сбросить процесс генерации.
+- **Умная публикация**: Если статья получается длинной (>1024 символа), бот не обрезает её, а отправляет текст отдельным сообщением сразу за фото.
+- **Обязательные тезисы**: Бот не начнет генерацию, если вы прислали только фото. Он вежливо попросит прислать тезисы в следующем сообщении.
+- **Переход на переменные окружения**: Все ключи теперь хранятся в защищенном файле `.env`.
 
+---
 
-## Возможности
+## Установка и запуск
 
-- Приём фото и подписи от автора в Telegram.
-- Генерация короткого текста‑подписи к фото через Mistral.
-- Предварительное утверждение текста (`ок` / `нет`).
-- Публикация фото + текста в указанный канал.
-- Работа в режиме polling (без webhook), запуск как systemd‑сервис.
+### 1. Подготовка
+```bash
+git clone https://github.com/vsanyanov-ux/telegram-publisher.git
+cd telegram-publisher
+python -m venv .venv
+# Windows
+.venv\Scripts\activate
+# Linux
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. Настройка (`.env`)
+Скопируйте пример конфига и заполните свои данные:
+```bash
+cp .env.example .env
+```
+В файле `.env` укажите:
+- `BOT_TOKEN`: токен вашего бота.
+- `MISTRAL_API_KEY`: API ключ от Mistral AI.
+- `CHANNEL_USERNAME`: @username вашего канала (куда постить).
+
+### 3. Запуск
+```bash
+python polling_bot.py
+```
 
 ---
 
 ## Архитектура
 
-- `services.py` — бизнес‑логика:
-  - хранение состояния пользователей;
-  - вызов Mistral API для генерации текста;
-  - отправка сообщений и публикация постов в канал.
-- `polling_bot.py` — Telegram‑бот на aiogram 3:
-  - принимает обновления через polling;
-  - обрабатывает фото и текстовые ответы;
-  - вызывает функции из `services.py`.
-- `main.py` — старый HTTP‑сервис:
-  - вариант запуска через веб‑сервер / webhook;
-  - в нём происходит вызов Mistral для генерации текста по изображению и тезисам;
-  - сейчас используется как пример и заготовка под возможный будущий веб‑интерфейс.
-
-В актуальной конфигурации используется **один и тот же бот**: он общается с автором в личке и от своего имени публикует посты в канал.
-
----
-
-## Установка
-
-```bash
-git clone https://github.com/vsanyanov-ux/telegram-publisher.git
-cd telegram-publisher
-
-python -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
-
-pip install -r requirements.txt
-```
-
----
-
-## Настройка
-
-1. Создайте бота через `@BotFather` и получите `BOT_TOKEN`.
-2. Создайте публичный канал и задайте ему username, например `@forma_test`.
-3. Добавьте бота администратором в канал с правом «Публиковать сообщения».
-
-В `services.py` укажите свои значения:
-
-```python
-BOT_TOKEN = "ВАШ_БОТ_ТОКЕН"
-CHANNEL_USERNAME = "@forma_test"          # username канала
-MISTRAL_API_KEY = "ВАШ_MISTRAL_API_KEY"
-```
-
-`BOT_TOKEN` должен совпадать с токеном бота, который добавлен админом в канал.
+- `polling_bot.py` — основной файл запуска бота (aiogram 3). Обрабатывает сообщения и нажатия кнопок.
+- `services.py` — вся логика: общение с Mistral, сохранение временных файлов и сборка постов для Telegram.
+- `main.py` — (legacy) заготовка для работы через FastAPI/Webhooks. Оставлена для обратной совместимости.
 
 ---
 
 ## Логика работы
 
-1. Автор отправляет боту фото с подписью‑тезисами.
-2. Бот:
-   - скачивает фото;
-   - запоминает `file_id`, путь к файлу и подпись;
-   - отправляет тезисы в Mistral и получает текст статьи.
-3. После генерации бот:
-   - отправляет автору текст статьи;
-   - затем пишет:  
-     «Готово! ✍️  
-     Нравится? Напиши `ок` ✅  
-     Не нравится? Напиши `нет`❌ — сгенерирую другой вариант 🔄».
-4. Если автор отвечает:
-   - `ок` — бот публикует фото + текст в канал и очищает состояние;
-   - `нет` — бот генерирует новый вариант текста и снова отправляет его на утверждение.
+1. Отправляете боту **фото**.
+2. Если в подписи к фото нет тезисов, бот попросит их прислать.
+3. Бот генерирует статью и присылает её вам на проверку с кнопками:
+   - ✅ **Опубликовать** — отправляет пост в канал.
+   - 🔄 **Еще вариант** — просит Mistral переписать статью.
+   - ❌ **Отмена** — очищает всё и завершает сессию.
 
 ---
 
-## Запуск вручную
-
-Основной рабочий вход — `polling_bot.py`:
-
-```bash
-cd /opt/telegram-publisher          # или путь к проекту
-source venv/bin/activate
-python polling_bot.py
-```
-
-`main.py` можно запускать отдельно, если нужен HTTP‑режим/интеграция с веб‑сервером: он также обращается к Mistral для генерации текста, но не используется в стандартном сценарии.
-
----
-
-## Запуск в фоне через systemd
-
-Пример unit‑файла `/etc/systemd/system/telegram-bot.service`:
-
-```ini
-[Unit]
-Description=Telegram FormaVolgodonskBot
-After=network.target
-
-[Service]
-Type=simple
-User=YOUR_USER
-WorkingDirectory=/opt/telegram-publisher
-Environment=PYTHONPATH=/opt/telegram-publisher
-ExecStart=/opt/telegram-publisher/venv/bin/python /opt/telegram-publisher/polling_bot.py
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Команды управления:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl start telegram-bot.service
-sudo systemctl enable telegram-bot.service   # автозапуск
-sudo systemctl status telegram-bot.service   # статус
-journalctl -u telegram-bot.service -f        # логи
-```
-
----
-
-## Типичные проблемы
-
-- `bots can't send messages to bots` — в `chat_id` указан другой бот, нужно username канала или его chat_id.
-- `wrong file identifier/HTTP URL specified` — `file_id` взят у другого бота; используйте один токен для приёма фото и отправки в канал.
-- `bot is not a member of the channel chat` — бот не добавлен администратором в канал.
-- `terminated by other getUpdates request` — запущено несколько экземпляров бота; используйте один systemd‑сервис.
-
----
-
-## Планы развития
-
-- Поддержка нескольких каналов.
-- История и статистика публикаций.
-- Веб‑панель настроек стиля текстов (с использованием логики из `main.py`).
+## Запуск в фоне (systemd)
+Для Linux (VPS) используйте юнит-файл из шаблона в проекте. Не забудьте указать путь к вашему `.venv` и `.env`.
